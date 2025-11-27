@@ -1,0 +1,4 @@
+Testing the cdk8s tool to generate the yaml files to apply
+to k8s. This honestly feels so obtuse that I hate it. I 
+really should just use helm/argo to start with, and come
+back to this if it EVER feels relevant.
