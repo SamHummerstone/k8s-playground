@@ -123,8 +123,8 @@ jobs:
             ${{ steps.meta.outputs.tags }}
             ${{ steps.decide.outputs.tags }}
           # Optional cache (kept even when we don’t push)
-          cache-from: type=registry,ref=${{ steps.meta.outputs.tags }}:cache
-          cache-to: type=registry,ref=${{ steps.meta.outputs.tags }}:cache,mode=max
+          cache-from: type=registry,ref=${{ steps.meta.outputs.image_name }}:cache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.image_name }}:cache,mode=max
 
       # ----------------------------------------------------
       # 8️⃣ OPTIONAL: DISPLAY RESULT
