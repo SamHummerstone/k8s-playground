@@ -1,0 +1,126 @@
+# .github/workflows/docker-build.yml
+name: Build & Publish Docker Image
+
+# ------------------------------------------------------------
+# 1️⃣ TRIGGERS
+# ------------------------------------------------------------
+on:
+  push:                     # any push (needed to catch merges to main)
+    branches:
+      - '**'                # all branches – we filter later
+  pull_request:             # PR events (opened / synchronize / reopened)
+    types: [opened, synchronize, reopened]
+
+# ------------------------------------------------------------
+# 2️⃣ GLOBAL SETTINGS
+# ------------------------------------------------------------
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/cookie-cutter
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write          # needed to push to GHCR
+      contents: read
+
+    steps:
+      # ----------------------------------------------------
+      # 2️⃣ CHECKOUT CODE
+      # ----------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------
+      # 3️⃣ SETUP BUILDX (multi‑arch ready)
+      # ----------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ----------------------------------------------------
+      # 4️⃣ LOG IN TO GHCR
+      # ----------------------------------------------------
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ----------------------------------------------------
+      # 5️⃣ DETERMINE WHETHER WE SHOULD PUSH AND WHAT TAGS TO USE
+      # ----------------------------------------------------
+      - name: Decide if we should push and compute tags
+        id: decide
+        run: |
+          # Helper to turn a branch name into a Docker-compatible tag
+          sanitize() {
+            echo "$1" | tr '/' '-' | tr '[:upper:]' '[:lower:]'
+          }
+
+          # Short SHA for traceability
+          SHORT_SHA=$(git rev-parse --short HEAD)
+
+          # Default: do NOT push
+          SHOULD_PUSH=false
+          TAGS=""
+
+          # ------------------------------------------------------------------
+          # CASE 1 - push on main (either a direct push or a merge)
+          # ------------------------------------------------------------------
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            SHOULD_PUSH=true
+            TAGS="latest,${SHORT_SHA}"
+          fi
+
+          # ------------------------------------------------------------------
+          # CASE 2 - push on a PR branch (the head branch of the PR)
+          # ------------------------------------------------------------------
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            # For PR events we have the head ref directly
+            BRANCH_NAME="${{ github.head_ref }}"
+            SAFE_BRANCH=$(sanitize "${BRANCH_NAME}")
+            SHOULD_PUSH=true
+            TAGS="${SAFE_BRANCH},${SAFE_BRANCH}-${SHORT_SHA}"
+          fi
+
+          echo "should_push=${SHOULD_PUSH}" >> $GITHUB_OUTPUT
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------
+      # 6️⃣ BUILD IMAGE (always runs – cheap) 
+      # ----------------------------------------------------
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: cookie-cutter/
+          load: true               # load into Docker daemon for later push step
+          tags: ${{ env.IMAGE_NAME }}:temp-${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:cache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:cache,mode=max
+
+      # ----------------------------------------------------
+      # 7️⃣ CONDITIONAL PUSH (only when SHOULD_PUSH is true)
+      # ----------------------------------------------------
+      - name: Push image to GHCR
+        if: steps.decide.outputs.should_push == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.decide.outputs.tags }}
+          # Optional cache (kept even when we don’t push)
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:cache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:cache,mode=max
+
+      # ----------------------------------------------------
+      # 8️⃣ OPTIONAL: DISPLAY RESULT
+      # ----------------------------------------------------
+      - name: Show image URL (only when we actually pushed)
+        if: steps.decide.outputs.should_push == 'true'
+        run: |
+          echo "✅ Image pushed to:"
+          for t in $(echo '${{ steps.decide.outputs.tags }}' | tr ',' '\n'); do
+            echo "   ${{ env.IMAGE_NAME }}:$t"
+          done
