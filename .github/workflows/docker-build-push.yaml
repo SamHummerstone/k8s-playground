@@ -120,7 +120,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ steps.meta.outputs.tags }}:${{ steps.decide.outputs.tags }}
+            ${{ steps.meta.outputs.tags }}
+            ${{ steps.decide.outputs.tags }}
           # Optional cache (kept even when we don’t push)
           cache-from: type=registry,ref=${{ steps.meta.outputs.tags }}:cache
           cache-to: type=registry,ref=${{ steps.meta.outputs.tags }}:cache,mode=max
