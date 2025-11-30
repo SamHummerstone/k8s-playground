@@ -90,12 +90,19 @@ jobs:
       # ----------------------------------------------------
       # 6️⃣ BUILD IMAGE (always runs – cheap) 
       # ----------------------------------------------------
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: temp-${{ github.sha }}
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: cookie-cutter/
           load: true               # load into Docker daemon for later push step
-          tags: ${{ env.IMAGE_NAME }}:temp-${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:cache
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:cache,mode=max
 
