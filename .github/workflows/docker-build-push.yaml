@@ -84,8 +84,12 @@ jobs:
             TAGS="${SAFE_BRANCH},${SAFE_BRANCH}-${SHORT_SHA}"
           fi
 
+
           echo "should_push=${SHOULD_PUSH}" >> $GITHUB_OUTPUT
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+          # Extra helpful output for lowercasing the image name
+          echo "image_name=${IMAGE_NAME,,}" >> $GITHUB_OUTPUT
 
       # ----------------------------------------------------
       # 6️⃣ BUILD IMAGE (always runs – cheap) 
@@ -103,8 +107,8 @@ jobs:
           context: cookie-cutter/
           load: true               # load into Docker daemon for later push step
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=registry,ref=${{ steps.meta.outputs.tags }}:cache
-          cache-to: type=registry,ref=${{ steps.meta.outputs.tags }}:cache,mode=max
+          cache-from: type=registry,ref=${{ steps.decide.outputs.image_name }}:cache
+          cache-to: type=registry,ref=${{ steps.decide.outputs.image_name }}:cache,mode=max
 
       # ----------------------------------------------------
       # 7️⃣ CONDITIONAL PUSH (only when SHOULD_PUSH is true)
