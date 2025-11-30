@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,11 @@ import (
 
 	"github.com/redis/go-redis/v9"
 )
+
+// Embed HTML file
+
+//go:embed static/index.html
+var indexHtml string
 
 // ---------- Redis ----------
 var rdb *redis.Client
@@ -52,13 +58,17 @@ func incCount(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int64{"count": newVal})
 }
 
+func defaultHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Host == "" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, indexHtml)
+		return
+	}
+}
+
 // ---------- Main ----------
 func main() {
 	initRedis()
-
-	// Serve static files (HTML + JS)
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fs)
 
 	// API routes
 	http.HandleFunc("/api/count", func(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +87,8 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	http.HandleFunc("/", defaultHandler)
+
 	fmt.Printf("🚀 Server listening on http://localhost:%s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
