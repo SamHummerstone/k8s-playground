@@ -99,7 +99,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
-          tags: temp-${{ github.sha }}
+          tags: ${{ steps.decide.outputs.tags }}
 
       - name: Build Docker image
         uses: docker/build-push-action@v5
